@@ -3176,8 +3176,221 @@ function onRecordingStopped() {
   recState.mediaRecorder = null;
   recState.blob = new Blob(recState.chunks, { type: recState.mimeType });
   recState.chunks = [];
-  // Show Review modal first — user listens, then decides to save
   showReviewModal(recState.blob);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// REVIEW MODAL — playback · share · convert MP3
+// ════════════════════════════════════════════════════════════════════════════
+const modalReview = document.getElementById('modalReview');
+let reviewBlob    = null;
+let reviewAudio   = new Audio();
+let reviewUrl     = null;
+
+function showReviewModal(blob) {
+  reviewBlob = blob;
+  if (reviewUrl) URL.revokeObjectURL(reviewUrl);
+  reviewUrl = URL.createObjectURL(blob);
+
+  reviewAudio.src = reviewUrl;
+  reviewAudio.load();
+  document.getElementById('rvTimeCur').textContent   = '0:00';
+  document.getElementById('rvTimeTotal').textContent = '—';
+  document.getElementById('rvFill').style.width      = '0%';
+  document.getElementById('rvSeek').value            = 0;
+  document.getElementById('rvPlayBtn').textContent   = '▶';
+  document.getElementById('rvFilename').textContent  = recFilename();
+  document.getElementById('mp3Progress').style.display = 'none';
+
+  showModal(modalReview);
+}
+
+reviewAudio.addEventListener('loadedmetadata', () => {
+  document.getElementById('rvTimeTotal').textContent = fmtTime(reviewAudio.duration);
+});
+
+reviewAudio.addEventListener('timeupdate', () => {
+  const t = reviewAudio.currentTime, d = reviewAudio.duration || 1;
+  document.getElementById('rvTimeCur').textContent = fmtTime(t);
+  document.getElementById('rvFill').style.width    = (t / d * 100) + '%';
+  document.getElementById('rvSeek').value          = Math.round(t / d * 1000);
+});
+
+reviewAudio.addEventListener('ended', () => {
+  document.getElementById('rvPlayBtn').textContent = '▶';
+});
+
+document.getElementById('rvPlayBtn').addEventListener('click', () => {
+  if (reviewAudio.paused) {
+    reviewAudio.play();
+    document.getElementById('rvPlayBtn').textContent = '⏸';
+  } else {
+    reviewAudio.pause();
+    document.getElementById('rvPlayBtn').textContent = '▶';
+  }
+});
+
+document.getElementById('rvSeek').addEventListener('input', e => {
+  reviewAudio.currentTime = (e.target.value / 1000) * (reviewAudio.duration || 0);
+});
+
+function stopReviewAudio() {
+  reviewAudio.pause();
+  reviewAudio.currentTime = 0;
+  document.getElementById('rvPlayBtn').textContent = '▶';
+}
+
+function closeReview() { stopReviewAudio(); hideModal(modalReview); }
+
+document.getElementById('btnReviewClose').addEventListener('click',  closeReview);
+document.getElementById('btnReviewClose2').addEventListener('click', closeReview);
+modalReview.addEventListener('click', e => { if (e.target === modalReview) closeReview(); });
+
+// Save button inside Review → open Save dialog
+document.getElementById('btnReviewSave').addEventListener('click', async () => {
+  recState.blob = reviewBlob;
+  await showSaveModal();
+});
+
+// Share as-is
+document.getElementById('btnShareNative').addEventListener('click', async () => {
+  const fname = document.getElementById('rvFilename').textContent;
+  const file  = new File([reviewBlob], fname, { type: reviewBlob.type });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: fname }); return; }
+    catch(e) { if (e.name === 'AbortError') return; }
+  }
+  triggerDownload(reviewBlob, fname);
+  toast('Saved to Downloads');
+});
+
+// Save to device
+document.getElementById('btnSaveDevice').addEventListener('click', async () => {
+  const fname = document.getElementById('rvFilename').textContent;
+  await smartSave(reviewBlob, fname);
+});
+
+// Load for looping
+document.getElementById('btnLoadForLoop').addEventListener('click', () => {
+  if (!reviewBlob) return;
+  stopReviewAudio();
+  hideModal(modalReview);
+  const hadMp3 = !!state.fileName, origSrc = audio.src, origName = state.fileName;
+  const recUrl2 = URL.createObjectURL(reviewBlob);
+  state.fileName = document.getElementById('rvFilename').textContent;
+  state.fileData = null;
+  audio.src = recUrl2;
+  audio.load();
+  if (hadMp3 && origName) {
+    backBannerName.textContent = origName;
+    backBanner.classList.add('show');
+    btnBackToMp3.onclick = () => {
+      audio.src = origSrc; state.fileName = origName; audio.load();
+      backBanner.classList.remove('show'); updateDropzoneCompact();
+      toast('Switched back to ' + origName);
+    };
+  }
+  document.querySelector('.tab-btn[data-tab="player"]').click();
+  toast('Recording loaded — set your A-B loop!', 'accent');
+});
+
+// ── MP3 Conversion
+let lamejsLoaded = false;
+
+document.getElementById('btnConvertMp3').addEventListener('click', async () => {
+  const prog = document.getElementById('mp3Progress');
+  const status = document.getElementById('mp3Status');
+  const bar    = document.getElementById('mp3Bar');
+  prog.style.display = 'block'; bar.style.width = '0%';
+  if (!lamejsLoaded) {
+    status.textContent = 'Loading MP3 encoder (~500 KB)…';
+    try {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js');
+      lamejsLoaded = true;
+    } catch(e) { status.textContent = '❌ Failed to load encoder. Check internet.'; return; }
+  }
+  status.textContent = 'Decoding audio…'; bar.style.width = '10%';
+  try {
+    const arrayBuf = await reviewBlob.arrayBuffer();
+    const tmpCtx   = new (window.AudioContext || window.webkitAudioContext)();
+    const decoded  = await tmpCtx.decodeAudioData(arrayBuf);
+    tmpCtx.close();
+    bar.style.width = '30%'; status.textContent = 'Encoding to MP3…';
+    const sampleRate = decoded.sampleRate;
+    const nCh = Math.min(decoded.numberOfChannels, 2);
+    const mp3enc = new lamejs.Mp3Encoder(nCh, sampleRate, recState.kbps || 64);
+    function f32ToI16(f) { const i=new Int16Array(f.length); for(let j=0;j<f.length;j++) i[j]=Math.max(-32768,Math.min(32767,Math.round(f[j]*32767))); return i; }
+    const l16 = f32ToI16(decoded.getChannelData(0));
+    const r16 = nCh > 1 ? f32ToI16(decoded.getChannelData(1)) : l16;
+    const mp3Data = []; const BLOCK = 1152;
+    for (let i = 0; i < l16.length; i += BLOCK) {
+      const enc = nCh > 1 ? mp3enc.encodeBuffer(l16.subarray(i,i+BLOCK), r16.subarray(i,i+BLOCK)) : mp3enc.encodeBuffer(l16.subarray(i,i+BLOCK));
+      if (enc.length > 0) mp3Data.push(enc);
+      if (i % (BLOCK*50) === 0) { bar.style.width=(30+(i/l16.length)*60).toFixed(0)+'%'; await new Promise(r=>setTimeout(r,0)); }
+    }
+    const fl = mp3enc.flush(); if (fl.length > 0) mp3Data.push(fl);
+    bar.style.width = '100%';
+    const mp3Blob  = new Blob(mp3Data, { type: 'audio/mpeg' });
+    const mp3fname = document.getElementById('rvFilename').textContent.replace(/\.(webm|mp4|ogg)$/i,'') + '.mp3';
+    status.textContent = `✅ Done — ${fmtSize(mp3Blob.size)}`;
+    await smartSave(mp3Blob, mp3fname);
+  } catch(err) { status.textContent = '❌ ' + err.message; bar.style.background = 'var(--danger)'; }
+});
+
+function loadScript(src) {
+  return new Promise((res, rej) => {
+    if (document.querySelector(`script[src="${src}"]`)) { res(); return; }
+    const s = document.createElement('script');
+    s.src = src; s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
+}
+
+// ── Smart save — uses showSaveFilePicker on Android/desktop, falls back to download
+// Remembers last filename prefix in localStorage
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a   = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+async function smartSave(blob, filename) {
+  // Remember last used filename prefix
+  try { localStorage.setItem('lt_last_filename', filename); } catch(e) {}
+
+  // Try File System Access API showSaveFilePicker (works on Android Chrome + desktop)
+  if (window.showSaveFilePicker) {
+    const ext  = filename.split('.').pop().toLowerCase();
+    const typeMap = {
+      webm: [{ description: 'WebM Audio', accept: { 'audio/webm': ['.webm'] } }],
+      mp4:  [{ description: 'MP4 Audio',  accept: { 'audio/mp4':  ['.mp4']  } }],
+      ogg:  [{ description: 'OGG Audio',  accept: { 'audio/ogg':  ['.ogg']  } }],
+      mp3:  [{ description: 'MP3 Audio',  accept: { 'audio/mpeg': ['.mp3']  } }],
+    };
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: filename,
+        types: typeMap[ext] || typeMap.webm,
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      // Remember folder name from handle
+      try { localStorage.setItem('lt_last_folder', handle.name); } catch(e) {}
+      toast('Saved: ' + handle.name, 'accent');
+      showLoadModal();
+      return;
+    } catch(e) {
+      if (e.name === 'AbortError') return; // user cancelled — do nothing
+      // Other error → fall through to download
+    }
+  }
+
+  // Fallback: standard download (goes to Downloads folder)
+  triggerDownload(blob, filename);
+  toast('Saved to Downloads: ' + filename, 'accent');
+  showLoadModal();
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -3191,23 +3404,21 @@ function showModal(el)  { el.classList.add('show'); }
 function hideModal(el)  { el.classList.remove('show'); }
 
 async function showSaveModal() {
-  // Populate info
-  document.getElementById('saveFilename').value = recFilename();
+  const suggested = recFilename();
+  document.getElementById('saveFilename').value = suggested;
   document.getElementById('saveDuration').textContent = fmtTime(Math.round(recState.duration));
-  document.getElementById('saveSize').textContent = fmtSize(recState.blob.size);
-  document.getElementById('saveFormat').textContent =
+  document.getElementById('saveSize').textContent     = fmtSize(recState.blob.size);
+  document.getElementById('saveFormat').textContent   =
     recState.mimeType.includes('mp4') ? 'MP4/AAC' :
     recState.mimeType.includes('ogg') ? 'OGG/Opus' : 'WebM/Opus';
-  document.getElementById('saveQuality').textContent = recState.kbps + ' kbps';
+  document.getElementById('saveQuality').textContent  = recState.kbps + ' kbps';
 
-  // Restore last folder name if saved
-  const savedFolder = localStorage.getItem('lt_last_folder');
-  if (savedFolder) document.getElementById('folderPath').textContent = savedFolder;
-  else document.getElementById('folderPath').textContent = 'Downloads (default)';
+  // Show last save location
+  const lastFolder = localStorage.getItem('lt_last_folder');
+  document.getElementById('folderPath').textContent =
+    lastFolder || (window.showSaveFilePicker ? 'Tap to choose location' : 'Downloads (default)');
 
-  // Storage estimate
   await populateStorageBar();
-
   showModal(modalSave);
 }
 
@@ -3216,14 +3427,12 @@ async function populateStorageBar() {
   try {
     const { quota, usage } = await navigator.storage.estimate();
     const usedPct = Math.min((usage / quota) * 100, 100);
-    const avail = quota - usage;
-    const fill = document.getElementById('storageFill');
-    fill.style.width = usedPct + '%';
-    fill.className = 'storage-bar-fill' +
+    const avail   = quota - usage;
+    const fill    = document.getElementById('storageFill');
+    fill.style.width  = usedPct + '%';
+    fill.className    = 'storage-bar-fill' +
       (usedPct > 85 ? ' danger' : usedPct > 65 ? ' warn' : '');
-
-    const gb = avail / (1024**3);
-    const mb = avail / (1024**2);
+    const gb = avail / (1024**3), mb = avail / (1024**2);
     document.getElementById('storageLabelVal').textContent =
       (gb >= 1 ? gb.toFixed(1) + ' GB' : Math.round(mb) + ' MB') + ' free';
   } catch(e) {
@@ -3231,90 +3440,41 @@ async function populateStorageBar() {
   }
 }
 
-// Folder picker — File System Access API with fallback
+// Folder picker row — opens save picker directly
 document.getElementById('folderPicker').addEventListener('click', async () => {
-  if (!window.showDirectoryPicker) {
-    toast('Folder picker not supported — file will go to Downloads');
-    return;
-  }
-  try {
-    const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
-    recState.savedFolderHandle = handle;
-    const name = handle.name;
-    document.getElementById('folderPath').textContent = name;
-    localStorage.setItem('lt_last_folder', name);
-    toast('Save location: ' + name, 'accent');
-  } catch(e) {
-    // User cancelled — that's fine
-  }
+  if (!recState.blob) return;
+  const filename = document.getElementById('saveFilename').value.trim() || recFilename();
+  hideModal(modalSave);
+  await smartSave(recState.blob, filename);
 });
 
-// Save & Download button
+// Save button
 document.getElementById('btnModalSave').addEventListener('click', async () => {
   const filename = document.getElementById('saveFilename').value.trim() || recFilename();
   hideModal(modalSave);
-  await doSave(filename);
+  await smartSave(recState.blob, filename);
 });
 
-async function doSave(filename) {
-  const blob = recState.blob;
-
-  // Try File System Access API (remembers folder)
-  if (recState.savedFolderHandle) {
-    try {
-      const fileHandle = await recState.savedFolderHandle.getFileHandle(filename, { create: true });
-      const writable = await fileHandle.createWritable();
-      await writable.write(blob);
-      await writable.close();
-      toast('Saved to ' + recState.savedFolderHandle.name + '/' + filename, 'accent');
-      showLoadModal();
-      return;
-    } catch(e) {
-      // fallthrough to standard download
-    }
-  }
-
-  // Standard download fallback
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
-  toast('Downloaded: ' + filename, 'accent');
-  showLoadModal();
-}
-
-// Discard button — triggers second confirmation
+// Discard button
 document.getElementById('btnModalDiscard').addEventListener('click', () => {
   hideModal(modalSave);
   showModal(modalDiscard);
 });
 
-// Discard modal — keep it
+// Discard — keep
 document.getElementById('btnDiscardCancel').addEventListener('click', () => {
   hideModal(modalDiscard);
-  showModal(modalSave); // back to save dialog
+  showModal(modalSave);
 });
 
-// Discard modal — confirm delete
+// Discard — confirm
 document.getElementById('btnDiscardConfirm').addEventListener('click', () => {
   hideModal(modalDiscard);
-  recState.blob = null;
+  recState.blob   = null;
   recState.chunks = [];
   recTimer.textContent = '0:00';
   toast('Recording discarded');
 });
-
-// ════════════════════════════════════════════════════════════════════════════
-// ════════════════════════════════════════════════════════════════════════════
-// REVIEW MODAL — playback · share · MP3 convert · STT
-// ════════════════════════════════════════════════════════════════════════════
-const modalReview = document.getElementById('modalReview');
-let reviewBlob = null;
-let reviewAudio = new Audio();
-let reviewUrl   = null;
-let reviewRaf   = null;
 
 // ════════════════════════════════════════════════════════════════════════════
 // 50-LANGUAGE LIST (shared by Review modal + Transcript tab)

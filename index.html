@@ -583,7 +583,7 @@
   .pill:hover { border-color: var(--border-accent); color: var(--text-primary); }
   .pill.active { border-color: var(--accent); background: var(--accent-subtle); color: var(--accent); font-weight: 600; }
 
-  /* ─ Bottom Loop Controls ─ */
+  /* ── Bottom Loop Controls ── */
   .loop-panel {
     background: var(--bg-card);
     border-radius: var(--radius-lg);
@@ -820,12 +820,352 @@
   /* ── Disabled state ── */
   .disabled { opacity: 0.35; pointer-events: none; }
 
-  /* ── Scrollbar ── */
-  ::-webkit-scrollbar { width: 4px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 4px; }
+  /* ── Queue / Playlist ── */
+  .load-btn-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
 
-  /* ── Tab Nav ── */
+  .btn-load-opt {
+    padding: 10px 6px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.15s;
+  }
+
+  .btn-load-opt:hover { border-color: var(--border-accent); color: var(--accent); }
+  .btn-load-opt span:first-child { font-size: 20px; }
+
+  /* Now-playing bar */
+  .nowplaying-bar {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 10px 14px;
+    margin-top: 14px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+
+  .nowplaying-bar.show { display: flex; }
+  .nowplaying-bar:hover { border-color: var(--border-accent); }
+
+  .np-icon { font-size: 18px; flex-shrink: 0; color: var(--accent); }
+
+  .np-info { flex: 1; min-width: 0; }
+
+  .np-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .np-pos {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-family: 'Space Mono', monospace;
+  }
+
+  .np-queue-btn {
+    padding: 5px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-accent);
+    background: var(--accent-subtle);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* Queue drawer overlay */
+  .queue-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 200;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s;
+    backdrop-filter: blur(3px);
+  }
+
+  .queue-overlay.show { opacity: 1; pointer-events: all; }
+
+  /* Queue drawer */
+  .queue-drawer {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    max-height: 80vh;
+    background: var(--bg-card);
+    border-top: 1px solid var(--border);
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    z-index: 201;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.32,0.72,0,1);
+    max-width: 780px;
+    margin: 0 auto;
+  }
+
+  .queue-drawer.show { transform: translateY(0); }
+
+  .queue-drag-handle {
+    width: 40px; height: 4px;
+    background: var(--text-muted);
+    border-radius: 2px;
+    margin: 10px auto 0;
+    flex-shrink: 0;
+    cursor: grab;
+  }
+
+  .queue-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px 10px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .queue-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .queue-header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .queue-action-btn {
+    width: 34px; height: 34px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+    transition: all 0.15s;
+  }
+
+  .queue-action-btn:hover { border-color: var(--border-accent); color: var(--accent); }
+
+  .queue-list {
+    overflow-y: auto;
+    flex: 1;
+    padding: 6px 0;
+  }
+
+  .queue-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    cursor: pointer;
+    transition: background 0.1s;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    user-select: none;
+    position: relative;
+  }
+
+  .queue-item:hover { background: var(--bg-elevated); }
+  .queue-item.active { background: var(--accent-subtle); border-left: 3px solid var(--accent); }
+  .queue-item.dragging { opacity: 0.4; }
+  .queue-item.drag-over { border-top: 2px solid var(--accent); }
+
+  .qi-drag {
+    color: var(--text-muted);
+    font-size: 16px;
+    cursor: grab;
+    flex-shrink: 0;
+    padding: 2px 4px;
+    touch-action: none;
+  }
+
+  .qi-drag:active { cursor: grabbing; }
+
+  .qi-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    width: 22px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .queue-item.active .qi-num { color: var(--accent); }
+
+  .qi-info { flex: 1; min-width: 0; }
+
+  .qi-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .queue-item.active .qi-name { color: var(--accent); }
+
+  .qi-size {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-family: 'Space Mono', monospace;
+    margin-top: 1px;
+  }
+
+  .qi-arrows {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+
+  .qi-arrow {
+    width: 24px; height: 20px;
+    border: 1px solid var(--border);
+    background: var(--bg-elevated);
+    color: var(--text-muted);
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    transition: all 0.12s;
+  }
+
+  .qi-arrow:hover { border-color: var(--border-accent); color: var(--accent); }
+
+  .qi-remove {
+    width: 28px; height: 28px;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+    transition: all 0.12s;
+  }
+
+  .qi-remove:hover { color: var(--danger); background: rgba(255,95,95,0.1); }
+
+  /* Folder file picker modal */
+  .folder-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 300;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 16px;
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s;
+  }
+
+  .folder-modal-overlay.show { opacity: 1; pointer-events: all; }
+
+  .folder-modal {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 20px;
+    width: 100%;
+    max-width: 480px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(20px);
+    transition: transform 0.25s;
+  }
+
+  .folder-modal-overlay.show .folder-modal { transform: none; }
+
+  .folder-file-list {
+    overflow-y: auto;
+    flex: 1;
+    margin: 12px 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+  }
+
+  .folder-file-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+
+  .folder-file-item:last-child { border-bottom: none; }
+  .folder-file-item:hover { background: var(--bg-elevated); }
+  .folder-file-item.checked { background: var(--accent-subtle); }
+
+  .folder-file-check {
+    width: 20px; height: 20px;
+    border-radius: 4px;
+    border: 2px solid var(--border);
+    background: var(--bg-elevated);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-size: 12px;
+    transition: all 0.12s;
+  }
+
+  .folder-file-item.checked .folder-file-check {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #0d0d0f;
+    font-weight: 700;
+  }
+
+  .folder-file-name {
+    flex: 1;
+    font-size: 13px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .folder-file-size {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-family: 'Space Mono', monospace;
+    flex-shrink: 0;
+  }
+</style>
   .tab-nav {
     display: flex;
     gap: 4px;
@@ -1455,12 +1795,36 @@
 <!-- ══ PLAYER TAB ══ -->
 <div class="tab-panel active" id="tab-player">
 <main>
-  <!-- File drop zone -->
+  <!-- Load options row -->
+  <div class="load-btn-row">
+    <button class="btn-load-opt" id="btnLoadFile">
+      <span>📄</span><span>Single file</span>
+    </button>
+    <button class="btn-load-opt" id="btnLoadFolder">
+      <span>📁</span><span>Open folder</span>
+    </button>
+    <button class="btn-load-opt" id="btnAddToQueue">
+      <span>➕</span><span>Add to queue</span>
+    </button>
+  </div>
+
+  <!-- Drop zone (drag & drop target, also shows current file) -->
   <div id="dropzone" onclick="document.getElementById('fileInput').click()">
     <div class="drop-icon" id="dropIcon">🎵</div>
     <div class="drop-title" id="dropTitle">Drop your MP3 here</div>
-    <div class="drop-sub" id="dropSub">or tap to browse • drag &amp; drop supported</div>
+    <div class="drop-sub" id="dropSub">or tap Single file · Open folder · drag &amp; drop</div>
     <input type="file" id="fileInput" accept="audio/*">
+    <input type="file" id="fileInputMulti" accept="audio/*" multiple style="display:none">
+  </div>
+
+  <!-- Now-playing bar (visible when queue has items) -->
+  <div class="nowplaying-bar" id="nowPlayingBar" onclick="openQueueDrawer()">
+    <div class="np-icon">🎵</div>
+    <div class="np-info">
+      <div class="np-name" id="npName">—</div>
+      <div class="np-pos" id="npPos">1 / 1</div>
+    </div>
+    <button class="np-queue-btn">☰ Queue</button>
   </div>
   <!-- File history panel — Loop tab -->
   <div class="file-history-panel" id="fhPanelLoop">
@@ -1777,6 +2141,37 @@
 
 </main>
 </div><!-- end tab-transcript -->
+
+<!-- ══ QUEUE DRAWER ══ -->
+<div class="queue-overlay" id="queueOverlay" onclick="closeQueueDrawer()"></div>
+<div class="queue-drawer" id="queueDrawer">
+  <div class="queue-drag-handle" id="queueDragHandle"></div>
+  <div class="queue-header">
+    <div class="queue-title" id="queueTitle">Queue (0 tracks)</div>
+    <div class="queue-header-actions">
+      <button class="queue-action-btn" id="btnQueueShuffle" title="Shuffle">🔀</button>
+      <button class="queue-action-btn" id="btnQueueClear" title="Clear queue">🗑</button>
+      <button class="queue-action-btn" id="btnQueueClose" title="Close">✕</button>
+    </div>
+  </div>
+  <div class="queue-list" id="queueList"></div>
+</div>
+
+<!-- ══ FOLDER FILE PICKER MODAL ══ -->
+<div class="folder-modal-overlay" id="folderModalOverlay">
+  <div class="folder-modal">
+    <div class="modal-title" id="folderModalTitle">📁 Select files to add</div>
+    <div style="display:flex;gap:8px;margin-top:8px;margin-bottom:4px">
+      <button class="modal-btn modal-btn-ghost" id="btnFolderSelectAll" style="flex:1;font-size:12px;padding:7px">✓ All</button>
+      <button class="modal-btn modal-btn-ghost" id="btnFolderSelectNone" style="flex:1;font-size:12px;padding:7px">✗ None</button>
+    </div>
+    <div class="folder-file-list" id="folderFileList"></div>
+    <div class="modal-btn-row" style="margin-top:12px">
+      <button class="modal-btn modal-btn-ghost" id="btnFolderCancel">Cancel</button>
+      <button class="modal-btn modal-btn-primary" id="btnFolderAdd">Add selected</button>
+    </div>
+  </div>
+</div>
 
 <!-- ══ MODALS ══ -->
 
@@ -2865,6 +3260,413 @@ window.addEventListener('load', () => {
     audio.load();
     toast('Restored: ' + name);
   });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// QUEUE / PLAYLIST ENGINE
+// ════════════════════════════════════════════════════════════════════════════
+const queue = {
+  tracks: [],      // [{name, size, blob, url}]
+  current: -1,     // index of playing track
+};
+
+// ── Elements
+const nowPlayingBar   = document.getElementById('nowPlayingBar');
+const npName          = document.getElementById('npName');
+const npPos           = document.getElementById('npPos');
+const queueDrawerEl   = document.getElementById('queueDrawer');
+const queueOverlay    = document.getElementById('queueOverlay');
+const queueList       = document.getElementById('queueList');
+const queueTitle      = document.getElementById('queueTitle');
+const folderModalEl   = document.getElementById('folderModalOverlay');
+const folderFileList  = document.getElementById('folderFileList');
+
+// ── Open/close drawer
+function openQueueDrawer()  {
+  queueDrawerEl.classList.add('show');
+  queueOverlay.classList.add('show');
+  renderQueueList();
+}
+
+function closeQueueDrawer() {
+  queueDrawerEl.classList.remove('show');
+  queueOverlay.classList.remove('show');
+}
+
+document.getElementById('btnQueueClose').addEventListener('click', closeQueueDrawer);
+
+// Swipe down on drawer handle to close
+let touchStartY = 0;
+document.getElementById('queueDragHandle').addEventListener('touchstart', e => {
+  touchStartY = e.touches[0].clientY;
+}, { passive: true });
+document.getElementById('queueDragHandle').addEventListener('touchmove', e => {
+  const dy = e.touches[0].clientY - touchStartY;
+  if (dy > 60) closeQueueDrawer();
+}, { passive: true });
+
+// ── Add tracks to queue
+function addTracksToQueue(files) {
+  // files: array of {name, size, blob}
+  files.forEach(f => {
+    const url = URL.createObjectURL(f.blob);
+    queue.tracks.push({ name: f.name, size: f.size, blob: f.blob, url });
+  });
+  updateQueueUI();
+  if (queue.current === -1 && queue.tracks.length > 0) {
+    playQueueTrack(0);
+  }
+}
+
+function updateQueueUI() {
+  const n = queue.tracks.length;
+  queueTitle.textContent = `Queue (${n} track${n !== 1 ? 's' : ''})`;
+
+  // Now-playing bar
+  if (n > 0 && queue.current >= 0) {
+    const t = queue.tracks[queue.current];
+    npName.textContent = t.name;
+    npPos.textContent  = `${queue.current + 1} / ${n}`;
+    nowPlayingBar.classList.add('show');
+  } else {
+    nowPlayingBar.classList.remove('show');
+  }
+}
+
+function renderQueueList() {
+  queueList.innerHTML = '';
+  if (!queue.tracks.length) {
+    queueList.innerHTML = '<div style="padding:24px;text-align:center;font-size:13px;color:var(--text-muted)">Queue is empty</div>';
+    return;
+  }
+
+  queue.tracks.forEach((t, i) => {
+    const item = document.createElement('div');
+    item.className = 'queue-item' + (i === queue.current ? ' active' : '');
+    item.dataset.idx = i;
+    item.innerHTML = `
+      <div class="qi-drag" data-idx="${i}" title="Drag to reorder">⠿</div>
+      <div class="qi-num">${i + 1}</div>
+      <div class="qi-info">
+        <div class="qi-name">${t.name}</div>
+        <div class="qi-size">${fmtSize(t.size)}</div>
+      </div>
+      <div class="qi-arrows">
+        <button class="qi-arrow" data-action="up" data-idx="${i}" title="Move up">▲</button>
+        <button class="qi-arrow" data-action="down" data-idx="${i}" title="Move down">▼</button>
+      </div>
+      <button class="qi-remove" data-idx="${i}" title="Remove">✕</button>
+    `;
+
+    // Tap track to play
+    item.addEventListener('click', e => {
+      if (e.target.closest('.qi-arrow') || e.target.closest('.qi-remove') || e.target.closest('.qi-drag')) return;
+      playQueueTrack(i);
+      closeQueueDrawer();
+    });
+
+    queueList.appendChild(item);
+  });
+
+  // Arrow buttons
+  queueList.querySelectorAll('.qi-arrow').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.idx);
+      const dir = btn.dataset.action;
+      moveQueueTrack(idx, dir === 'up' ? idx - 1 : idx + 1);
+    });
+  });
+
+  // Remove buttons
+  queueList.querySelectorAll('.qi-remove').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      removeQueueTrack(parseInt(btn.dataset.idx));
+    });
+  });
+
+  // Drag-to-reorder
+  setupQueueDrag();
+}
+
+function moveQueueTrack(from, to) {
+  if (to < 0 || to >= queue.tracks.length) return;
+  const [t] = queue.tracks.splice(from, 1);
+  queue.tracks.splice(to, 0, t);
+  if (queue.current === from) queue.current = to;
+  else if (queue.current === to) queue.current = from;
+  updateQueueUI();
+  renderQueueList();
+}
+
+function removeQueueTrack(idx) {
+  URL.revokeObjectURL(queue.tracks[idx].url);
+  queue.tracks.splice(idx, 1);
+  if (queue.current >= queue.tracks.length) queue.current = queue.tracks.length - 1;
+  if (queue.tracks.length === 0) { queue.current = -1; nowPlayingBar.classList.remove('show'); }
+  else updateQueueUI();
+  renderQueueList();
+}
+
+// ── Play a track by index
+function playQueueTrack(idx) {
+  if (idx < 0 || idx >= queue.tracks.length) return;
+  queue.current = idx;
+  const t = queue.tracks[idx];
+
+  // Load into main audio
+  state.fileName = t.name;
+  state.fileData = null;
+  audio.src      = t.url;
+  audio.load();
+
+  // Reset A/B
+  clearPointA(); clearPointB();
+  state.currentLoopCount = 0;
+  updateLoopCounter();
+
+  updateQueueUI();
+  updateDropzoneCompact();
+  toast('▶ ' + t.name);
+
+  // Auto-play
+  audio.addEventListener('loadedmetadata', () => { audio.play(); }, { once: true });
+}
+
+// ── Auto-advance when track ends (only when loop is OFF or count reached)
+audio.addEventListener('ended', () => {
+  if (state.loopEnabled && state.pointA !== null && state.pointB !== null) return; // loop handles it
+  if (queue.tracks.length > 1 && queue.current < queue.tracks.length - 1) {
+    playQueueTrack(queue.current + 1);
+  } else if (queue.tracks.length > 1) {
+    toast('End of queue');
+  }
+});
+
+// ── Shuffle
+document.getElementById('btnQueueShuffle').addEventListener('click', () => {
+  if (queue.tracks.length < 2) return;
+  // Fisher-Yates
+  const arr = [...queue.tracks];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  // Keep current track at position 0 after shuffle
+  const cur = queue.tracks[queue.current];
+  const newIdx = arr.findIndex(t => t === cur);
+  if (newIdx > 0) { const [t] = arr.splice(newIdx, 1); arr.unshift(t); }
+  queue.tracks = arr;
+  queue.current = 0;
+  updateQueueUI();
+  renderQueueList();
+  toast('Queue shuffled 🔀');
+});
+
+// ── Clear queue
+document.getElementById('btnQueueClear').addEventListener('click', () => {
+  queue.tracks.forEach(t => URL.revokeObjectURL(t.url));
+  queue.tracks = [];
+  queue.current = -1;
+  nowPlayingBar.classList.remove('show');
+  renderQueueList();
+  updateQueueUI();
+  closeQueueDrawer();
+  toast('Queue cleared');
+});
+
+// ── Drag-to-reorder within queue list
+function setupQueueDrag() {
+  const items = queueList.querySelectorAll('.queue-item');
+  let dragIdx = null;
+
+  items.forEach(item => {
+    const handle = item.querySelector('.qi-drag');
+
+    // Touch drag
+    handle.addEventListener('touchstart', e => {
+      dragIdx = parseInt(item.dataset.idx);
+      item.classList.add('dragging');
+      e.stopPropagation();
+    }, { passive: true });
+
+    handle.addEventListener('touchmove', e => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const els = document.elementsFromPoint(touch.clientX, touch.clientY);
+      const target = els.find(el => el.classList.contains('queue-item') && el !== item);
+      queueList.querySelectorAll('.queue-item').forEach(i => i.classList.remove('drag-over'));
+      if (target) target.classList.add('drag-over');
+    }, { passive: false });
+
+    handle.addEventListener('touchend', e => {
+      queueList.querySelectorAll('.drag-over').forEach(el => {
+        const toIdx = parseInt(el.dataset.idx);
+        if (toIdx !== dragIdx) moveQueueTrack(dragIdx, toIdx);
+        el.classList.remove('drag-over');
+      });
+      item.classList.remove('dragging');
+      dragIdx = null;
+    });
+
+    // Mouse drag
+    handle.addEventListener('dragstart', e => {
+      dragIdx = parseInt(item.dataset.idx);
+      item.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+
+    item.setAttribute('draggable', 'true');
+    item.addEventListener('dragover', e => {
+      e.preventDefault();
+      queueList.querySelectorAll('.queue-item').forEach(i => i.classList.remove('drag-over'));
+      item.classList.add('drag-over');
+    });
+    item.addEventListener('drop', e => {
+      e.preventDefault();
+      const toIdx = parseInt(item.dataset.idx);
+      if (toIdx !== dragIdx) moveQueueTrack(dragIdx, toIdx);
+      item.classList.remove('drag-over');
+    });
+    item.addEventListener('dragend', () => {
+      item.classList.remove('dragging');
+      queueList.querySelectorAll('.queue-item').forEach(i => i.classList.remove('drag-over'));
+    });
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// LOAD BUTTONS — Single file · Open folder · Add to queue
+// ════════════════════════════════════════════════════════════════════════════
+
+// Single file (existing behaviour)
+document.getElementById('btnLoadFile').addEventListener('click', () => {
+  document.getElementById('fileInput').click();
+});
+
+// Add to queue — multi-file picker
+document.getElementById('btnAddToQueue').addEventListener('click', () => {
+  document.getElementById('fileInputMulti').click();
+});
+
+document.getElementById('fileInputMulti').addEventListener('change', async e => {
+  const files = Array.from(e.target.files).filter(f => f.type.startsWith('audio/'));
+  if (!files.length) return;
+  const tracks = files.map(f => ({ name: f.name, size: f.size, blob: f }));
+  addTracksToQueue(tracks);
+  e.target.value = '';
+  toast(`Added ${files.length} track${files.length > 1 ? 's' : ''} to queue`);
+  openQueueDrawer();
+});
+
+// Open folder — showDirectoryPicker → checklist modal
+document.getElementById('btnLoadFolder').addEventListener('click', async () => {
+  if (!window.showDirectoryPicker) {
+    toast('Folder picker not supported — use "Add to queue" to select multiple files');
+    document.getElementById('fileInputMulti').click();
+    return;
+  }
+  try {
+    const dirHandle = await window.showDirectoryPicker({ mode: 'read' });
+    const audioFiles = [];
+    const audioExts  = ['mp3','wav','webm','mp4','ogg','m4a','flac','aac'];
+
+    for await (const entry of dirHandle.values()) {
+      if (entry.kind !== 'file') continue;
+      const ext = entry.name.split('.').pop().toLowerCase();
+      if (!audioExts.includes(ext)) continue;
+      audioFiles.push(entry);
+    }
+
+    audioFiles.sort((a, b) => a.name.localeCompare(b.name));
+
+    if (!audioFiles.length) {
+      toast('No audio files found in that folder');
+      return;
+    }
+
+    // Show checklist modal
+    document.getElementById('folderModalTitle').textContent =
+      `📁 ${dirHandle.name}  (${audioFiles.length} audio files)`;
+
+    folderFileList.innerHTML = '';
+    const fileDataMap = new Map(); // name → File object (loaded on check)
+    let checkedSet = new Set(audioFiles.map(e => e.name)); // all checked by default
+
+    const renderFolderItems = async () => {
+      folderFileList.innerHTML = '';
+      for (const entry of audioFiles) {
+        const item = document.createElement('div');
+        item.className = 'folder-file-item' + (checkedSet.has(entry.name) ? ' checked' : '');
+        item.innerHTML = `
+          <div class="folder-file-check">${checkedSet.has(entry.name) ? '✓' : ''}</div>
+          <div class="folder-file-name">${entry.name}</div>
+          <div class="folder-file-size">—</div>
+        `;
+        item.addEventListener('click', async () => {
+          if (checkedSet.has(entry.name)) {
+            checkedSet.delete(entry.name);
+          } else {
+            checkedSet.add(entry.name);
+            // Load file object if not already loaded
+            if (!fileDataMap.has(entry.name)) {
+              const f = await entry.getFile();
+              fileDataMap.set(entry.name, f);
+              item.querySelector('.folder-file-size').textContent = fmtSize(f.size);
+            }
+          }
+          item.classList.toggle('checked', checkedSet.has(entry.name));
+          item.querySelector('.folder-file-check').textContent =
+            checkedSet.has(entry.name) ? '✓' : '';
+        });
+
+        // Load file size async
+        entry.getFile().then(f => {
+          fileDataMap.set(entry.name, f);
+          item.querySelector('.folder-file-size').textContent = fmtSize(f.size);
+        });
+
+        folderFileList.appendChild(item);
+      }
+    };
+
+    await renderFolderItems();
+
+    document.getElementById('btnFolderSelectAll').onclick = () => {
+      checkedSet = new Set(audioFiles.map(e => e.name));
+      renderFolderItems();
+    };
+    document.getElementById('btnFolderSelectNone').onclick = () => {
+      checkedSet.clear();
+      renderFolderItems();
+    };
+
+    document.getElementById('btnFolderAdd').onclick = async () => {
+      const selected = audioFiles.filter(e => checkedSet.has(e.name));
+      if (!selected.length) { toast('No files selected'); return; }
+
+      const tracks = [];
+      for (const entry of selected) {
+        const f = fileDataMap.get(entry.name) || await entry.getFile();
+        tracks.push({ name: f.name, size: f.size, blob: f });
+      }
+
+      folderModalEl.classList.remove('show');
+      addTracksToQueue(tracks);
+      toast(`Added ${tracks.length} tracks from ${dirHandle.name}`);
+      openQueueDrawer();
+    };
+
+    document.getElementById('btnFolderCancel').onclick = () => {
+      folderModalEl.classList.remove('show');
+    };
+
+    folderModalEl.classList.add('show');
+
+  } catch(e) {
+    if (e.name !== 'AbortError') toast('Could not open folder: ' + e.message);
+  }
 });
 
 // ─── Resize waveform ─────────────────────────────────────────────────────────

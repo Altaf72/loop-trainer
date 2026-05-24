@@ -1165,7 +1165,13 @@
     font-family: 'Space Mono', monospace;
     flex-shrink: 0;
   }
-</style>
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 4px; }
+
+  /* ── Tab Nav ── */
   .tab-nav {
     display: flex;
     gap: 4px;
